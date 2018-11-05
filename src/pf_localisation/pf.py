@@ -23,9 +23,9 @@ class PFLocaliser(PFLocaliserBase):
         # Distribute particles randomly across the map
         particlecloud = PoseArray()
         number_of_particles = 100
-	    map_width = self.occupancy_map.info.width
-	    map_height = self.occupancy_map.info.height
-	
+        map_width = self.occupancy_map.info.width
+        map_height = self.occupancy_map.info.height
+
         accepted_particles = 0
 
         while accepted_particles < number_of_particles:
@@ -57,4 +57,5 @@ class PFLocaliser(PFLocaliserBase):
         # Better approximations could be made by doing some simple clustering,
         # e.g. taking the average location of half the particles after 
         # throwing away any which are outliers
-        pass
+        est_pose = self.particlecloud.poses[0]
+        return est_pose
