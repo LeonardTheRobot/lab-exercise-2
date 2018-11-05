@@ -10,7 +10,6 @@ from time import time
 
 
 class PFLocaliser(PFLocaliserBase):
-       
     def __init__(self):
         # Call the superclass constructor
         super(PFLocaliser, self).__init__()
@@ -19,16 +18,14 @@ class PFLocaliser(PFLocaliserBase):
  
         # Sensor model parameters
         self.NUMBER_PREDICTED_READINGS = 20 	# Number of readings to predict
-        
-       
+
     def initialise_particle_cloud(self, initialpose):
         # Set particle cloud to initialpose plus noise
-
+        return PoseArray()
  
-    
     def update_particle_cloud(self, scan):
         # Update particlecloud, given map and laser scan
-
+        pass
 
     def estimate_pose(self):
         # Create new estimated pose, given particle cloud
@@ -38,4 +35,4 @@ class PFLocaliser(PFLocaliserBase):
         # Better approximations could be made by doing some simple clustering,
         # e.g. taking the average location of half the particles after 
         # throwing away any which are outliers
-
+        pass
