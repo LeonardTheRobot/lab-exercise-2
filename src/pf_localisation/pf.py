@@ -8,6 +8,8 @@ import random
 
 from time import time
 
+from sklearn.cluster import KMeans
+
 
 class PFLocaliser(PFLocaliserBase):
     def __init__(self):
@@ -57,5 +59,52 @@ class PFLocaliser(PFLocaliserBase):
         # Better approximations could be made by doing some simple clustering,
         # e.g. taking the average location of half the particles after 
         # throwing away any which are outliers
-        est_pose = self.particlecloud.poses[0]
+        particles = self.particlecloud.poses
+
+        arr = []
+
+        for p in particles:
+            arr.append((p.position.x, p.position.y))
+
+        x = np.asarray(arr)
+        kmeans = KMeans(n_clusters = 1, random_state = 0).fit(x)
+        center = kmeans.cluster_centers
+
+        filtered_arr = outlier_removal(x, center, 50)
+        filtered_kmeans = KMeans(n_clusters = 1, random_state = 0).fit(filtered_arr)
+        filtered_center = kmeans.cluster_centers
+
+        totalX = 0.0
+        totalY = 0.0
+        totalZ = 0.0
+        totalW = 0.0
+        total = 0
+
+        for p in particles:
+            if np.array(p.position) in filtered_arr:
+                total += 1
+                totalX += p.orientation.getX()
+                totalY += p.orientation.getY()
+                totalZ += p.orientation.getZ()
+                totalW += p.orientation.getW()
+
+        new_orientation = Quaternion(totalX / total, totalY / total, totalZ  /total, totalW / total)
+        est_pose = Pose()
+        est_pose.position = center
+        est_pose.orientation = new_orientation
         return est_pose
+
+    def outlier_removal(arr, center, percentile):
+        distances = []
+        for p in arr:
+            distances.append(np.linalg.norm(center-p))
+        limit = np.percentile(distances, percentile)
+        for p in arr:
+            dist = np.linalg.norm(center-p)
+            if dist > limit:
+                index = np.argwhere(arr==p)
+                new_arr = np.delete(arr, index)
+                arr = new_arr
+        return arr
+    
+
