@@ -47,7 +47,32 @@ class PFLocaliser(PFLocaliserBase):
  
     def update_particle_cloud(self, scan):
         # Update particlecloud, given map and laser scan
-        pass
+
+        # Work out weights of particles from sensor readings
+        particles = self.particlecloud.poses
+        weights = []
+        for p in particles:
+            weights.append((p, self.sensor_model.get_weight(scan, p)))
+
+        # Resample particles according to weights
+        cdf_aux = 0.0
+        cdf = []
+        for (p, w) in weights:
+            cdf.append((p, cdf_aux + w))
+
+        u = random.uniform(0.0, 1.0 / len(particles))
+        i = 0
+        new_particles = PoseArray()
+
+        for j in range(1, len(particles)):
+            while(u > cdf[i][1]):
+                i += 1
+
+            new_particles.poses.append(cdf[i][0])
+            u += (1.0 / len(particles))
+
+        return new_particles
+            
 
     def estimate_pose(self):
         # Create new estimated pose, given particle cloud
