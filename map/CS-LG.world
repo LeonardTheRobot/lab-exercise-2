@@ -62,7 +62,7 @@ floorplan
   name "CS-LG"
   bitmap "CS-LG.pgm"
   size [32 42 0.5]
-  pose [ 0 0 0 0 ]
+  pose [ 16 21 0 0 ]
 )
 
 # throw in a robot
