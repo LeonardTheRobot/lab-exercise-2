@@ -4,7 +4,7 @@ import math
 import rospy
 
 from util import rotateQuaternion, getHeading
-from random import random
+import random
 
 from time import time
 
@@ -23,31 +23,29 @@ class PFLocaliser(PFLocaliserBase):
        
     def initialise_particle_cloud(self, initialpose):
         # Distribute particles randomly across the map
-        number_of_particles = 300
+        particlecloud = PoseArray()
+        number_of_particles = 100
 	    map_width = self.occupancy_map.info.width
 	    map_height = self.occupancy_map.info.height
 	
+        accepted_particles = 0
 
-        for i in range(number_of_particles):
+        while accepted_particles < number_of_particles:
+            x = random.randint(0, map_width - 1)
+            y = random.randint(0, map_height - 1)
+            theta = random.uniform(0, 2 * math.pi)
+
             pose = Pose()
-            x = random.randint(0, 20 * map_width) / 20.0
-            y = random.randint(0, 20 * map_height) / 20.0
-            z = random.uniform(0, 6.283)
-            pose.position.x = x
-            pose.position.y = y
-            pose.orientation = rotateQuaternion(Quaternion(w=1.0),z)
+            pose.position.x = x * 0.05
+            pose.position.y = y * 0.05
+            pose.orientation = rotateQuaternion(Quaternion(w=1.0), theta)
 
-            # Remove particles that are outside map boundaries
-            x_index = x / 0.05
-            y_index = y / 0.05
+            map_index = x + y * map_width
+            if self.occupancy_map.data[map_index] == 0:
+                particlecloud.poses.append(pose)
+                accepted_particles += 1
 
-            major_index = x_index + (y_index * map.width)
-            valid = self.occupancy_map.data[major_index]
-
-            if valid == 0 or valid == -1:
-                continue
-            else:
-                self.particlecloud.poses.add(pose)
+        return particlecloud
 
 
     def update_particle_cloud(self, scan):
