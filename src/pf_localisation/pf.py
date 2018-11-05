@@ -72,7 +72,7 @@ class PFLocaliser(PFLocaliserBase):
 
         filtered_arr = outlier_removal(x, center, 50)
         filtered_kmeans = KMeans(n_clusters = 1, random_state = 0).fit(filtered_arr)
-        filtered_center = kmeans.cluster_centers
+        filtered_center = filtered_kmeans.cluster_centers
 
         totalX = 0.0
         totalY = 0.0
