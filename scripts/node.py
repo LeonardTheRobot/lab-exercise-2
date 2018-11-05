@@ -10,12 +10,11 @@ import rospy
 import pf_localisation.pf
 from pf_localisation.util import *
 
-from geometry_msgs.msg import ( PoseStamped, PoseWithCovarianceStamped,
-                                PoseArray, Quaternion )
+from geometry_msgs.msg import ( PoseStamped, PoseWithCovarianceStamped, PoseArray, Quaternion )
 from tf.msg import tfMessage
 from sensor_msgs.msg import LaserScan
-from nav_msgs.msg import pf_localisationOccupancyGrid, Odometry
-import 
+from nav_msgs.msg import OccupancyGrid, Odometry
+import pf_localisation
 from threading import Lock
 
 import sys
