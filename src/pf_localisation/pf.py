@@ -13,6 +13,7 @@ class PFLocaliser(PFLocaliserBase):
     def __init__(self):
         # Call the superclass constructor
         super(PFLocaliser, self).__init__()
+        self.NUMBER_PARTICLES = 200
         
         # Set motion model parameters
         self.ODOM_ROTATION_NOISE = 0.05 # Odometry model rotation noise
@@ -44,29 +45,28 @@ class PFLocaliser(PFLocaliserBase):
             if self.occupancy_map.data[map_index] == 0:
                 particles.poses.append(pose)
                 accepted_particles += 1
-            
         return particles
 
     def initialise_particle_cloud(self, initialpose):
-        return self.gen_random_particles(200)
+        # Generate all the particles randomly distributed throghout the world
+        return self.gen_random_particles(self.NUMBER_PARTICLES)
  
     def update_particle_cloud(self, scan):
         # Update particlecloud, given map and laser scan
         particles = self.particlecloud.poses
         # Work out weights of particles from sensor readings
         weighted_particles = []
-        weight_sum = 0.0
         for p in particles:
             pw = self.sensor_model.get_weight(scan, p)
             weighted_particles.append((p, pw))
 
         # Sort the particles by weight in descending order
         sorted_weighted_particles = sorted(weighted_particles, key=lambda p: p[1], reverse=True)
-        # Resample the 150 particles with the highest weights
-        pred_weighted_particles = sorted_weighted_particles[:150]
+        # Keep the 3/4 of particles with the highest weights for resampling
+        pred_weighted_particles = sorted_weighted_particles[:int(0.75 * self.NUMBER_PARTICLES)]
         weight_sum = sum([p[1] for p in pred_weighted_particles])
-        # Random distribute the remaining 50 particles across the map
-        rand_weighted_particles = self.gen_random_particles(50)
+        # Discard and randomly distribute the remaining 1/4 of particles across the map
+        rand_weighted_particles = self.gen_random_particles(int(0.25 * self.NUMBER_PARTICLES))
         
         # Resample particles according to weights
         cdf_aux = 0.0
