@@ -18,6 +18,7 @@ class PFLocaliser(PFLocaliserBase):
         # Call the superclass constructor
         super(PFLocaliser, self).__init__()
         self.NUMBER_PARTICLES = 400
+        self.REDIST_PERCENTAGE = 0.25
         
         # Set motion model parameters
         self.ODOM_ROTATION_NOISE = 0.05 # Odometry model rotation noise
@@ -69,10 +70,10 @@ class PFLocaliser(PFLocaliserBase):
         sorted_weighted_particles = sorted(weighted_particles, key=lambda p: p[1], reverse=True)
 
         # Keep the 3/4 of particles with the highest weights for resampling
-        pred_weighted_particles = sorted_weighted_particles[:int(0.75 * self.NUMBER_PARTICLES)]
+        pred_weighted_particles = sorted_weighted_particles[:int((1 - self.REDIST_PERCENTAGE) * self.NUMBER_PARTICLES)]
         weight_sum = sum([p[1] for p in pred_weighted_particles])
         # Discard and randomly distribute the remaining 1/4 of particles across the map
-        rand_weighted_particles = self.gen_random_particles(int(0.25 * self.NUMBER_PARTICLES))
+        rand_weighted_particles = self.gen_random_particles(int(self.REDIST_PERCENTAGE * self.NUMBER_PARTICLES))
         
         # Resample particles according to weights
         cdf_aux = 0.0
@@ -101,7 +102,7 @@ class PFLocaliser(PFLocaliserBase):
             else:
                 rejected_particles += 1
             
-        rand_weighted_particles = self.gen_random_particles(50 + rejected_particles)  
+        rand_weighted_particles = self.gen_random_particles(int(self.REDIST_PERCENTAGE * self.NUMBER_PARTICLES) + rejected_particles)  
         new_particles.poses += rand_weighted_particles.poses
         self.particlecloud = new_particles
 
