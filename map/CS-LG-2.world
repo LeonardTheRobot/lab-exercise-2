@@ -50,7 +50,7 @@ interval_sim 100 # simulation timestep in milliseconds
 
 window
 (
-  size [ 1000.000 600.000 ]
+  size [ 676.000 586.000 ]
 
   rotate [ 0.000 0.000 ]
   scale 20.0
@@ -61,8 +61,8 @@ floorplan
 (
   name "CS-LG-2"
   bitmap "CS-LG-2.pgm"
-  size [32 42 0.5]
-  pose [ 16 21 0 0 ]
+  size [29 24 0.5]
+  pose [ 0 0 0 0 ]
 )
 
 # throw in a robot
