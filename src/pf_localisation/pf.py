@@ -21,7 +21,7 @@ class PFLocaliser(PFLocaliserBase):
         self.ODOM_DRIFT_NOISE = 0.05 # Odometry model y axis (side-to-side) noise
  
         # Sensor model parameters
-        self.NUMBER_PREDICTED_READINGS = 20 # Number of readings to predict
+        self.NUMBER_PREDICTED_READINGS = 30 # Number of readings to predict
 
     def gen_random_particles(self, number_of_particles):
         particles = PoseArray()
