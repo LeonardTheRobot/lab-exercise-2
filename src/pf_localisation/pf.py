@@ -13,16 +13,19 @@ class PFLocaliser(PFLocaliserBase):
     def __init__(self):
         # Call the superclass constructor
         super(PFLocaliser, self).__init__()
+        self.NUMBER_PARTICLES = 200
         
         # Set motion model parameters
+        self.ODOM_ROTATION_NOISE = 0.05 # Odometry model rotation noise
+        self.ODOM_TRANSLATION_NOISE = 0.1 # Odometry model x axis (forward) noise
+        self.ODOM_DRIFT_NOISE = 0.05 # Odometry model y axis (side-to-side) noise
  
         # Sensor model parameters
-        self.NUMBER_PREDICTED_READINGS = 20 	# Number of readings to predict
+        self.NUMBER_PREDICTED_READINGS = 30 # Number of readings to predict
 
-    def initialise_particle_cloud(self, initialpose):
-        # Distribute particles randomly across the map
-        particlecloud = PoseArray()
-        number_of_particles = 100
+    def gen_random_particles(self, number_of_particles):
+        particles = PoseArray()
+
         map_width = self.occupancy_map.info.width
         map_height = self.occupancy_map.info.height
 
@@ -40,15 +43,56 @@ class PFLocaliser(PFLocaliserBase):
 
             map_index = x + y * map_width
             if self.occupancy_map.data[map_index] == 0:
-                particlecloud.poses.append(pose)
+                particles.poses.append(pose)
                 accepted_particles += 1
+        return particles
 
-        return particlecloud
+    def initialise_particle_cloud(self, initialpose):
+        # Generate all the particles randomly distributed throghout the world
+        return self.gen_random_particles(self.NUMBER_PARTICLES)
  
     def update_particle_cloud(self, scan):
         # Update particlecloud, given map and laser scan
-        pass
+        particles = self.particlecloud.poses
+        # Work out weights of particles from sensor readings
+        weighted_particles = []
+        for p in particles:
+            pw = self.sensor_model.get_weight(scan, p)
+            weighted_particles.append((p, pw))
 
+        # Sort the particles by weight in descending order
+        sorted_weighted_particles = sorted(weighted_particles, key=lambda p: p[1], reverse=True)
+        # Keep the 3/4 of particles with the highest weights for resampling
+        pred_weighted_particles = sorted_weighted_particles[:int(0.75 * self.NUMBER_PARTICLES)]
+        weight_sum = sum([p[1] for p in pred_weighted_particles])
+        # Discard and randomly distribute the remaining 1/4 of particles across the map
+        rand_weighted_particles = self.gen_random_particles(int(0.25 * self.NUMBER_PARTICLES))
+        
+        # Resample particles according to weights
+        cdf_aux = 0.0
+        cdf = []
+        for (p, w) in pred_weighted_particles:
+            cdf.append((p, cdf_aux + w / weight_sum))
+            cdf_aux += w / weight_sum
+
+        u = random.uniform(0.0, 1.0 / len(pred_weighted_particles))
+        i = 0
+        new_particles = PoseArray()
+
+        for j in range(0, len(pred_weighted_particles)):
+            while(u > cdf[i][1]):
+                i += 1
+            new_particle = Pose()
+            new_particle.position.x = cdf[i][0].position.x + random.gauss(0.0, 0.2)
+            new_particle.position.y = cdf[i][0].position.y + random.gauss(0.0, 0.2)
+            new_particle.orientation = rotateQuaternion(Quaternion(w=1.0), getHeading(cdf[i][0].orientation) + random.gauss(0, 0.05))
+            new_particles.poses.append(new_particle)
+            
+            u += (1.0 / len(pred_weighted_particles))
+        
+        new_particles.poses += rand_weighted_particles.poses
+        self.particlecloud = new_particles
+    
     def estimate_pose(self):
         # Create new estimated pose, given particle cloud
         # E.g. just average the location and orientation values of each of
@@ -57,5 +101,19 @@ class PFLocaliser(PFLocaliserBase):
         # Better approximations could be made by doing some simple clustering,
         # e.g. taking the average location of half the particles after 
         # throwing away any which are outliers
-        est_pose = self.particlecloud.poses[0]
+        num_particles = len(self.particlecloud.poses)
+        sum_x = 0.0
+        sum_y = 0.0
+        sum_theta = 0.0
+
+        for pose in self.particlecloud.poses:
+            sum_x += pose.position.x
+            sum_y += pose.position.y
+            sum_theta += getHeading(pose.orientation)
+        
+        est_pose = Pose()
+        est_pose.position.x = sum_x / num_particles
+        est_pose.position.y = sum_y / num_particles
+        est_pose.orientation = rotateQuaternion(Quaternion(w=1.0), sum_theta / num_particles)
+
         return est_pose

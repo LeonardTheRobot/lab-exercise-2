@@ -142,6 +142,10 @@ class SensorModel(object):
               data given the estimated map location
          """
         pz = 0.0
+
+        # If the reading at this angle returns NaN, then return 0 so it doesn't contribute to the particle's weight
+        if math.isnan(obs_range):
+            return 0.0
     
         # Part 1: good, but noisy, hit
         z = obs_range - map_range

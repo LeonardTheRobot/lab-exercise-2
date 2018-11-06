@@ -19,7 +19,7 @@ define topurg ranger
 define pioneer position
 (
   size [0.45 0.45 0.25]
-  origin [4.0 -4.0 0 0]
+  origin [0 0 0 0]
   gui_nose 1
   drive "diff"
   topurg(pose [ 0.135 0 0.202 0 ])
@@ -61,10 +61,10 @@ floorplan
 (
   name "CS-LG-2"
   bitmap "CS-LG-2.pgm"
-  size [29 24 0.5]
-  pose [ 0 0 0 0 ]
+  size [28.8 24.3 0.5]
+  pose [ 14.4 12.15 0 0 ]
 )
 
 # throw in a robot
-pioneer( pose [ 0 0 0 0 ] name "robot" color "blue")
+pioneer( pose [ 14.4 12.15 0 0 ] name "robot" color "blue")
 block( pose [ -13 2 0 180.000 ] color "red")
