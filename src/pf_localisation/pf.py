@@ -2,18 +2,22 @@ from geometry_msgs.msg import Pose, PoseArray, Quaternion
 from pf_base import PFLocaliserBase
 import math
 import rospy
+import numpy as np
 
 from util import rotateQuaternion, getHeading
 import random
 
 from time import time
 
+from sklearn.cluster import KMeans
+from sklearn.cluster import DBSCAN
+
 
 class PFLocaliser(PFLocaliserBase):
     def __init__(self):
         # Call the superclass constructor
         super(PFLocaliser, self).__init__()
-        self.NUMBER_PARTICLES = 200
+        self.NUMBER_PARTICLES = 400
         
         # Set motion model parameters
         self.ODOM_ROTATION_NOISE = 0.05 # Odometry model rotation noise
@@ -56,12 +60,14 @@ class PFLocaliser(PFLocaliserBase):
         particles = self.particlecloud.poses
         # Work out weights of particles from sensor readings
         weighted_particles = []
+
         for p in particles:
             pw = self.sensor_model.get_weight(scan, p)
             weighted_particles.append((p, pw))
 
         # Sort the particles by weight in descending order
         sorted_weighted_particles = sorted(weighted_particles, key=lambda p: p[1], reverse=True)
+
         # Keep the 3/4 of particles with the highest weights for resampling
         pred_weighted_particles = sorted_weighted_particles[:int(0.75 * self.NUMBER_PARTICLES)]
         weight_sum = sum([p[1] for p in pred_weighted_particles])
@@ -78,6 +84,7 @@ class PFLocaliser(PFLocaliserBase):
         u = random.uniform(0.0, 1.0 / len(pred_weighted_particles))
         i = 0
         new_particles = PoseArray()
+        rejected_particles = 0
 
         for j in range(0, len(pred_weighted_particles)):
             while(u > cdf[i][1]):
@@ -86,12 +93,27 @@ class PFLocaliser(PFLocaliserBase):
             new_particle.position.x = cdf[i][0].position.x + random.gauss(0.0, 0.2)
             new_particle.position.y = cdf[i][0].position.y + random.gauss(0.0, 0.2)
             new_particle.orientation = rotateQuaternion(Quaternion(w=1.0), getHeading(cdf[i][0].orientation) + random.gauss(0, 0.05))
-            new_particles.poses.append(new_particle)
             
-            u += (1.0 / len(pred_weighted_particles))
-        
+            map_index = (new_particle.position.x/0.05) + (new_particle.position.y/0.05) * self.occupancy_map.info.width
+            if self.occupancy_map.data[int(map_index)] == 0:
+                new_particles.poses.append(new_particle)
+                u += (1.0 / len(pred_weighted_particles))
+            else:
+                rejected_particles += 1
+            
+        rand_weighted_particles = self.gen_random_particles(50 + rejected_particles)  
         new_particles.poses += rand_weighted_particles.poses
         self.particlecloud = new_particles
+
+    
+    def get_neighbours(self, center, particles, limit):
+        temp = []
+        for p in particles:
+            temp_p = np.array((p.position.x, p.position.y))
+            dist = np.linalg.norm(center-temp_p)
+            if(dist < limit and dist > -limit):
+                temp.append(p)
+        return temp
     
     def estimate_pose(self):
         # Create new estimated pose, given particle cloud
@@ -101,19 +123,40 @@ class PFLocaliser(PFLocaliserBase):
         # Better approximations could be made by doing some simple clustering,
         # e.g. taking the average location of half the particles after 
         # throwing away any which are outliers
-        num_particles = len(self.particlecloud.poses)
-        sum_x = 0.0
-        sum_y = 0.0
-        sum_theta = 0.0
+        particles = self.particlecloud.poses
+        arr = []
+        cluster_radius = 1
 
-        for pose in self.particlecloud.poses:
-            sum_x += pose.position.x
-            sum_y += pose.position.y
-            sum_theta += getHeading(pose.orientation)
-        
+        for p in particles:
+            arr.append((p.position.x, p.position.y))
+
+        X = np.array(arr, ndmin=2)
+
+        min_samples = 80
+        x_dbs = DBSCAN(eps=cluster_radius, min_samples=min_samples).fit(X)
+        while len(x_dbs.components_) == 0:
+            min_samples -= 20
+            x_dbs = DBSCAN(eps=cluster_radius, min_samples=min_samples).fit(X)
+        center = x_dbs.components_[0]
+
+        neighbours = self.get_neighbours(center, particles, cluster_radius)
+
+        totalX = 0.0
+        totalY = 0.0
+        totalZ = 0.0
+        totalW = 0.0
+        total = 0
+
+        for p in neighbours:
+            total += 1
+            totalX += p.orientation.x
+            totalY += p.orientation.y
+            totalZ += p.orientation.z
+            totalW += p.orientation.w
+        new_orientation = Quaternion(totalX / total, totalY / total, totalZ  /total, totalW / total)
+       
         est_pose = Pose()
-        est_pose.position.x = sum_x / num_particles
-        est_pose.position.y = sum_y / num_particles
-        est_pose.orientation = rotateQuaternion(Quaternion(w=1.0), sum_theta / num_particles)
-
+        est_pose.position.x = center[0]
+        est_pose.position.y = center[1]
+        est_pose.orientation = new_orientation
         return est_pose
