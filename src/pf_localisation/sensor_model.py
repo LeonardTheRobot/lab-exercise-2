@@ -104,9 +104,9 @@ class SensorModel(object):
     
         for (px, py) in points:
             if not self.map_valid(px, py) or self.map_data[px + py*self.map_width] != 0:
-                # print("{}, {}").format(px, py)
+                # print("{}, {}: {}, {}").format(x0, y0, px, py)
                 # print(self.map_data[px + py*self.map_width])
-                return math.sqrt((px-x0)*(px-x0) + (py-y0)*(py-y0))
+                return (math.sqrt((px-x0)*(px-x0) + (py-y0)*(py-y0))) * self.map_resolution
 	
         return self.scan_range_max
 	    
