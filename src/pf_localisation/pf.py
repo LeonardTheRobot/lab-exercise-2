@@ -17,13 +17,13 @@ class PFLocaliser(PFLocaliserBase):
     def __init__(self):
         # Call the superclass constructor
         super(PFLocaliser, self).__init__()
-        self.NUMBER_PARTICLES = 400
+        self.NUMBER_PARTICLES = 200
         self.REDIST_PERCENTAGE = 0.25
         
         # Set motion model parameters
         self.ODOM_ROTATION_NOISE = 0.05 # Odometry model rotation noise
-        self.ODOM_TRANSLATION_NOISE = 0.1 # Odometry model x axis (forward) noise
-        self.ODOM_DRIFT_NOISE = 0.05 # Odometry model y axis (side-to-side) noise
+        self.ODOM_TRANSLATION_NOISE = 0.007 # Odometry model x axis (forward) noise
+        self.ODOM_DRIFT_NOISE = 0.005 # Odometry model y axis (side-to-side) noise
  
         # Sensor model parameters
         self.NUMBER_PREDICTED_READINGS = 30 # Number of readings to predict
@@ -91,27 +91,23 @@ class PFLocaliser(PFLocaliserBase):
             while(u > cdf[i][1]):
                 i += 1
             new_particle = Pose()
-            new_particle.position.x = cdf[i][0].position.x + random.gauss(0.0, 0.2)
-            new_particle.position.y = cdf[i][0].position.y + random.gauss(0.0, 0.2)
+            new_particle.position.x = cdf[i][0].position.x + random.gauss(0.0, 0.1)
+            new_particle.position.y = cdf[i][0].position.y + random.gauss(0.0, 0.1)
             new_particle.orientation = rotateQuaternion(Quaternion(w=1.0), getHeading(cdf[i][0].orientation) + random.gauss(0, 0.05))
             
-            map_index = (new_particle.position.x/0.05) + (new_particle.position.y/0.05) * self.occupancy_map.info.width
-            if self.occupancy_map.data[int(map_index)] == 0:
-                new_particles.poses.append(new_particle)
-                u += (1.0 / len(pred_weighted_particles))
-            else:
-                rejected_particles += 1
+            new_particles.poses.append(new_particle)
+            u += (1.0 / len(pred_weighted_particles))
             
-        rand_weighted_particles = self.gen_random_particles(int(self.REDIST_PERCENTAGE * self.NUMBER_PARTICLES) + rejected_particles)  
+        rand_weighted_particles = self.gen_random_particles(int(self.REDIST_PERCENTAGE * self.NUMBER_PARTICLES))  
         new_particles.poses += rand_weighted_particles.poses
         self.particlecloud = new_particles
 
     
-    def get_neighbours(self, center, particles, limit):
+    def get_neighbours(self, centre, particles, limit):
         temp = []
         for p in particles:
             temp_p = np.array((p.position.x, p.position.y))
-            dist = np.linalg.norm(center-temp_p)
+            dist = np.linalg.norm(centre-temp_p)
             if(dist < limit and dist > -limit):
                 temp.append(p)
         return temp
@@ -138,9 +134,21 @@ class PFLocaliser(PFLocaliserBase):
         while len(x_dbs.components_) == 0:
             min_samples -= 20
             x_dbs = DBSCAN(eps=cluster_radius, min_samples=min_samples).fit(X)
-        center = x_dbs.components_[0]
+        
+        # The cluster with the highest density will be the first in the array
+        densest_cluster = x_dbs.components_[0]
+        # Find all the clusters around this densest cluster within 1 cluster radius
+        # Average the positions of these best clusters to get the estimated pose
+        best_clusters = [densest_cluster]
+        for c in x_dbs.components_:
+            dist = np.linalg.norm(densest_cluster - c)
+            if dist < cluster_radius and dist > -cluster_radius:
+                best_clusters.append(c)
+        # The position of our estimated pose, i.e. the centre of the best cluster of particles
+        centre = (sum([c[0] for c in best_clusters]) / len(best_clusters),
+                  sum([c[1] for c in best_clusters]) / len(best_clusters))
 
-        neighbours = self.get_neighbours(center, particles, cluster_radius)
+        neighbours = self.get_neighbours(centre, particles, cluster_radius)
 
         totalX = 0.0
         totalY = 0.0
@@ -157,7 +165,7 @@ class PFLocaliser(PFLocaliserBase):
         new_orientation = Quaternion(totalX / total, totalY / total, totalZ  /total, totalW / total)
        
         est_pose = Pose()
-        est_pose.position.x = center[0]
-        est_pose.position.y = center[1]
+        est_pose.position.x = centre[0]
+        est_pose.position.y = centre[1]
         est_pose.orientation = new_orientation
         return est_pose
