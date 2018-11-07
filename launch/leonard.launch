@@ -1,0 +1,33 @@
+<launch>
+    <!-- Start p2os driver -->
+	<node pkg="p2os_driver" type="p2os_driver" name="p2os">
+	        <param name="port" value="/dev/ttyUSB0" />
+	        <param name="use_sonar" value="false" /> 
+	        <remap from="/pose" to="/odom" />
+	</node>
+		
+	<!-- run hokuyo laser node -->
+	<node pkg="urg_node" type="urg_node" name="hokuyo">
+		<remap from="/laser" to="/base_scan" />
+		<remap from="/scan" to="/base_scan" />
+	</node>
+
+	<!-- transform laser co-ordinates into robot-base co-ordinate frame -->
+	<node pkg="tf" type="static_transform_publisher" name="stp_laser" output="screen" args="0.135 0 0.202 0 0 0 base_link laser 100" />
+	
+	<!-- start map server -->
+	<arg name="map_file" default="$(find lab-exercise-2)/map/CS-LG-2.yaml"/>
+
+    <!-- Run the map server -->
+    <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+	
+	<!-- run rviz -->
+    <node type="rviz" name="rviz" pkg="rviz" args="-d /data/private/robot/repos/src/lab-exercise-2/launch/assignment_2_config.rviz" />
+    
+    <!-- initialise particle filter node -->
+    <node name="particle_filter" pkg="lab-exercise-2" type="node.py" />
+    
+    <!-- start wall hugger -->
+	<node name="wall_hugger" pkg="lab-exercise-2" type="wall_hugger.py" />
+
+</launch>
