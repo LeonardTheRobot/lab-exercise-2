@@ -9,8 +9,7 @@ from geometry_msgs.msg import (PoseWithCovarianceStamped, PoseArray,
                                Quaternion,  Transform,  TransformStamped )
 
 startTime = 0
-init = True
-distance = 0
+initialise = True
 
 class Testing:
 
@@ -23,41 +22,45 @@ class Testing:
         INIT_Z = 0 			# Initial z location of robot (metres)
         INIT_HEADING = 0 	# Initial orientation of robot (radians)
         distance = 0
+        degree = 0
         #global startTime
         #startTime = rospy.get_rostime()
         #ospy.loginfo("Start Time: %i %i", startTime.secs, startTime.nsecs)
 
         self.lin_speed = 0.5
-        self.ang_speed = 0
+        self.ang_speed = 0.5
 
     def callback(self, odom_msg):
-        global init
+        global initialise
         new_speed = Twist()
         new_speed.angular.z = self.ang_speed
-        new_speed.linear.x = self.lin_speed
-        if init:
-            print(odom_msg.pose.pose.position.x)
-            print(odom_msg.pose.pose.position.y)
-            self.INIT_X = odom_msg.pose.pose.position.x
-            self.INIT_Y = odom_msg.pose.pose.position.y
+        #new_speed.linear.x = self.lin_speed
+        stop = Twist()
+        stop.linear.x = 0
+        if initialise:
+            #print(odom_msg.pose.pose.position.x)
+            #print(odom_msg.pose.pose.position.y)
+            #self.INIT_X = odom_msg.pose.pose.position.x
+            #self.INIT_Y = odom_msg.pose.pose.position.y
+            self.INIT_HEADING = odom_msg.pose.pose.orientation.w
+            print(odom_msg.pose.pose.orientation.w)
             print("got initial")
-            init = False
+            initialise = False
             self.movement_publisher.publish(new_speed)
         else:
-            distance = math.sqrt(pow(odom_msg.pose.pose.position.x - self.INIT_X,2) + pow(odom_msg.pose.pose.position.y - self.INIT_Y,2))
-            
-            #global startTime
-            #timeLimit = rospy.Duration(secs=5)
-            #while (rospy.get_rostime() - startTime) < timeLimit:
-        	    #rospy.loginfo('lin: {}, ang: {}'.format(new_speed.linear.x, new_speed.angular.z))
-        	    #self.movement_publisher.publish(new_speed)
-            global distance
-            if distance < 1:
-                print(distance)
+            #self.distance = math.sqrt(pow(odom_msg.pose.pose.position.x - self.INIT_X,2) + pow(odom_msg.pose.pose.position.y - self.INIT_Y,2))
+            #if self.distance < 1:
+            #    print(self.distance)
+            #    self.movement_publisher.publish(new_speed)
+            #else:
+            #    self.movement_publisher.publish(stop)
+            #    print('stop: {}'.format(self.distance))
+
+            self.degree = odom_msg.pose.pose.orientation.w - self.INIT_HEADING
+            print(abs(self.degree))
+            if abs(self.degree) <0.25:
+                print "turning"
                 self.movement_publisher.publish(new_speed)
-            else:
-                print("stop")
-            
 
 
 
