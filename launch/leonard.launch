@@ -28,6 +28,6 @@
     <node name="particle_filter" pkg="lab-exercise-2" type="node.py" />
     
     <!-- start wall hugger -->
-	<node name="wall_hugger" pkg="lab-exercise-1" type="wall_hugger.py" />
+	<node name="wall_hugger" pkg="lab-exercise-2" type="wall_hugger.py" />
 
 </launch>
