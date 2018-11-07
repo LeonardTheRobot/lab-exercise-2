@@ -96,6 +96,7 @@ class PFLocaliser(PFLocaliserBase):
             new_particle.orientation = rotateQuaternion(Quaternion(w=1.0), getHeading(cdf[i][0].orientation) + random.gauss(0, 0.05))
             
             map_index = (new_particle.position.x/0.05) + (new_particle.position.y/0.05) * self.occupancy_map.info.width
+            # print(int(map_index))
             if self.occupancy_map.data[int(map_index)] == 0:
                 new_particles.poses.append(new_particle)
                 u += (1.0 / len(pred_weighted_particles))

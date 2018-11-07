@@ -84,18 +84,61 @@ class SensorModel(object):
         :Returns:
             | (double) Range (in m) expected to be observed by the laser
         """
-        r = laser_trace.map_calc_range(ox, oy, oa, self.map_width,
-                                          self.map_height,
-                                          self.map_origin_x,
-                                          self.map_origin_y,
-                                          self.map_resolution,
-                                          self.scan_range_max,
-                                          self.map_data)
+        r = self.get_range(ox, oy, oa)
+
         if r <= self.scan_range_max:
             return r
         else:
-            # rospy.logwarn("calc_map_range giving oversized ranges!!")
+            # rospy.logwarn("get_range giving oversized ranges!!")
             return self.scan_range_max
+
+    def get_range(self, ox, oy, oa):
+    
+        x0 = int(ox / self.map_resolution)
+        y0 = int(oy / self.map_resolution)
+        x1 = int((ox + self.scan_range_max * math.cos(oa)) / self.map_resolution)
+        y1 = int((oy + self.scan_range_max * math.sin(oa)) / self.map_resolution)
+    
+        points = self.bresenham(x0, y0, x1, y1)
+        # print(list(points))
+    
+        for (px, py) in points:
+            if not self.map_valid(px, py) or self.map_data[px + py*self.map_width] != 0:
+                # print("{}, {}").format(px, py)
+                # print(self.map_data[px + py*self.map_width])
+                return math.sqrt((px-x0)*(px-x0) + (py-y0)*(py-y0))
+	
+        return self.scan_range_max
+	    
+    def map_valid(self, x, y):
+	    return x >= 0 and x < self.map_width and y >= 0 and y < self.map_height
+	    
+    def bresenham(self, x0, y0, x1, y1):
+        """Line from integers (x0, y0) to (x1, y1)"""
+        dx = x1 - x0
+        dy = y1 - y0
+        
+        xsign = 1 if dx > 0 else -1
+        ysign = 1 if dy > 0 else -1
+        
+        dx = abs(dx)
+        dy = abs(dy)
+        
+        if dx > dy:
+            xx, xy, yx, yy = xsign, 0, 0, ysign
+        else:
+        	dx, dy = dy, dx
+        	xx, xy, yx, yy = 0, ysign, xsign, 0
+        
+        D = 2*dy - dx
+        y = 0
+        
+        for x in range(int(dx + 1)):
+        	yield x0 + x*xx + y*yx, y0 + x*xy + y*yy
+        	if D >= 0:
+        		y += 1
+        		D -= 2*dx
+        	D += 2*dy
         
     def get_weight(self, scan, pose):
         """
@@ -125,6 +168,7 @@ class SensorModel(object):
             # Compute the range according to the map
             map_range = self.calc_map_range(pose.position.x, pose.position.y,
                                      getHeading(pose.orientation) + obs_bearing)
+            # print(map_range)
             pz = self.predict(obs_range, map_range)
             p += pz*pz*pz # Cube probability: reduce low-probability particles 
             
