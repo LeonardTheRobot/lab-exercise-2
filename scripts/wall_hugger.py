@@ -4,14 +4,12 @@ import numpy as np
 
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
 
 from pf_localisation.util import getHeading
 
 class WallHugger:
     def __init__(self):
         rospy.Subscriber('base_scan', LaserScan, self.laser_callback)
-        rospy.Subscriber('odom', Odometry, self.odom_callback)
         self.movement_publisher = rospy.Publisher('cmd_vel', Twist, queue_size=100)
 
         self.lin_speed = 0.2
@@ -20,12 +18,6 @@ class WallHugger:
         wall_hug_accuracy = 0.2 # +/- 0.2m
         self.min_wall_distance = target_wall_distance - wall_hug_accuracy
         self.max_wall_distance = target_wall_distance + wall_hug_accuracy
-
-        self.first_wall_encountered = False
-        self.too_far = False
-        self.start_counting_angle = False
-        self.start_heading = 0.0
-        self.current_heading = 0.0
 
     def laser_callback(self, laser_msg):
         # rospy.loginfo('laser_msg: {}'.format(laser_msg))
@@ -43,14 +35,6 @@ class WallHugger:
         rospy.loginfo('L: {}, F: {}, R: {}'.format(left, front, right))
 
         new_speed = Twist()
-
-        if not self.first_wall_encountered:
-            if front < 1.0 * self.min_wall_distance or right < 1.0 * self.min_wall_distance:
-                self.first_wall_encountered = True
-            else:
-                new_speed.linear.x = self.lin_speed
-                self.movement_publisher.publish(new_speed)
-                return
         
         if front < 1.0 * self.min_wall_distance or np.sort(cleaned_readings)[10] < 0.2:
             rospy.loginfo('OBSTRUCTED')
@@ -63,27 +47,12 @@ class WallHugger:
                 rospy.loginfo('TOO CLOSE')
                 self.ang_speed = 0.5
                 new_speed.angular.z = self.ang_speed
-                self.too_far = False
-                self.start_counting_angle = False
             elif right > self.max_wall_distance:
                 rospy.loginfo('TOO FAR')
                 new_speed.angular.z = -self.ang_speed
                 self.ang_speed = max(self.ang_speed - 0.002, 0.0)
-                self.too_far = True
-                self.start_counting_angle = True
         rospy.loginfo('lin: {}, ang: {}'.format(new_speed.linear.x, new_speed.angular.z))
         self.movement_publisher.publish(new_speed)
-
-    def odom_callback(self, odom_msg):
-        if self.too_far and self.start_counting_angle:
-            self.start_heading = getHeading(odom_msg.pose.pose.orientation)
-            self.current_heading = self.start_heading
-            self.start_counting_angle = False
-        elif self.too_far:
-            self.current_heading = getHeading(odom_msg.pose.pose.orientation)
-
-        else:
-            print 'angle: {}'.format(getHeading(odom_msg.pose.pose.orientation))
 
 
 if __name__ == '__main__':
