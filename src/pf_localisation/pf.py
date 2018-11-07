@@ -85,7 +85,6 @@ class PFLocaliser(PFLocaliserBase):
         u = random.uniform(0.0, 1.0 / len(pred_weighted_particles))
         i = 0
         new_particles = PoseArray()
-        rejected_particles = 0
 
         for j in range(0, len(pred_weighted_particles)):
             while(u > cdf[i][1]):
